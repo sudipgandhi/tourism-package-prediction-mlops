@@ -88,9 +88,6 @@ input_df = pd.DataFrame([{
 # ============================
 if st.button("Predict"):
     prob = model.predict_proba(input_df)[0][1]
-    st.write(f"Predicted Probability: {prob:.4f}")
-    st.write(f"Threshold Used: {THRESHOLD:.2f}")
-
     if prob >= THRESHOLD:
         st.success("Customer is LIKELY to purchase the Tourism Package.")
     else:
