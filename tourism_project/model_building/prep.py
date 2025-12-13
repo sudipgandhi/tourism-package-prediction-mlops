@@ -1,45 +1,78 @@
+"""
+DATA PREPARATION SCRIPT
+----------------------
+Purpose:
+- Loads raw dataset from Hugging Face Dataset Hub
+- Performs basic cleaning
+- Splits data into train/test
+- Uploads processed splits back to HF Dataset Hub
+"""
+
 import os
 import pandas as pd
 from sklearn.model_selection import train_test_split
 from huggingface_hub import HfApi
-from huggingface_hub.utils import RepositoryNotFoundError
 
+# ============================
+# CONFIGURATION
+# ============================
+DATASET_REPO = "sudipgandhi/tourism-package-prediction"
 HF_TOKEN = os.getenv("HF_TOKEN")
+
+if not HF_TOKEN:
+    raise RuntimeError("HF_TOKEN not found.")
+
 api = HfApi(token=HF_TOKEN)
 
-dataset_repo = "sudipgandhi/tourism-package-prediction"
+# ============================
+# LOAD DATA FROM HF
+# ============================
+print("Loading dataset from Hugging Face...")
+df = pd.read_csv(f"hf://datasets/{DATASET_REPO}/tourism.csv")
 
-# Load dataset directly from Hugging Face
-df = pd.read_csv(f"hf://datasets/{dataset_repo}/tourism.csv")
-print("Dataset loaded from HF dataset repo.")
-
-# Drop unnecessary columns
+# ============================
+# BASIC CLEANING
+# ============================
+# Drop ID / unnecessary columns if present
 drop_cols = ["CustomerID", "Unnamed: 0"]
-df = df.drop(columns=[c for c in drop_cols if c in df.columns])
+df.drop(columns=[c for c in drop_cols if c in df.columns], inplace=True)
 
-# Target column
-target = "ProdTaken"
-X = df.drop(columns=[target])
-y = df[target]
+# Target variable
+TARGET_COL = "ProdTaken"
 
-# Split
+if TARGET_COL not in df.columns:
+    raise ValueError("Target column 'ProdTaken' not found.")
+
+# ============================
+# TRAIN / TEST SPLIT
+# ============================
+X = df.drop(columns=[TARGET_COL])
+y = df[TARGET_COL]
+
 Xtrain, Xtest, ytrain, ytest = train_test_split(
-    X, y, test_size=0.2, random_state=42, stratify=y
+    X, y,
+    test_size=0.2,
+    random_state=42,
+    stratify=y
 )
 
-# Save locally
+# ============================
+# SAVE SPLITS LOCALLY
+# ============================
 Xtrain.to_csv("Xtrain.csv", index=False)
 Xtest.to_csv("Xtest.csv", index=False)
 ytrain.to_csv("ytrain.csv", index=False)
 ytest.to_csv("ytest.csv", index=False)
 
-# Upload split files
-for f in ["Xtrain.csv", "Xtest.csv", "ytrain.csv", "ytest.csv"]:
+# ============================
+# UPLOAD SPLITS TO HF
+# ============================
+for file in ["Xtrain.csv", "Xtest.csv", "ytrain.csv", "ytest.csv"]:
     api.upload_file(
-        path_or_fileobj=f,
-        path_in_repo=f,
-        repo_id=dataset_repo,
-        repo_type="dataset",
+        path_or_fileobj=file,
+        path_in_repo=file,
+        repo_id=DATASET_REPO,
+        repo_type="dataset"
     )
 
-print("Train/Test split uploaded successfully.")
+print("Data preparation completed and uploaded successfully.")
